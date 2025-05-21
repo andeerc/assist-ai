@@ -4,7 +4,6 @@ prompt-toolkit==3.0.43
 colorama==0.4.6
 shellingham==1.5.4
 openai>=1.79.0
-duckduckgo-search>=8.0.0
 crewai>=0.28.0
 crewai[tools]>=0.28.0
 langchain-openai
@@ -12,3 +11,4 @@ python-dotenv
 setuptools
 beautifulsoup4
 requests
+langchain-community

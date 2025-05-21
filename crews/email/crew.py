@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 import re
-from config.settings import CONFIG
+from config.settings import CONFIG, VERBOSE_MODE
 from typing import Optional
 
 # Obtenha as credenciais do email das configurações ou variáveis de ambiente
@@ -70,45 +70,43 @@ def validate_email(email: str) -> bool:
     """
     return is_valid_email(email)
 
-# Agente de email
-email_agent = Agent(
-    role="Agente de Email",
-    goal="Compor e enviar emails profissionais baseados na solicitação do usuário: '{input}'",
-    backstory="Você é um especialista em comunicação escrita, com vasta experiência em redação de emails formais e informais. Sua função é entender a solicitação do usuário e criar emails bem estruturados, claros e adequados ao contexto.",
-    tools=[send_email, compose_email, validate_email],
-    allow_delegation=False,
-    llm=get_gpt40(),
-    verbose=False
-)
-
-# Tarefas de email
-compose_task = Task(
-    description="Compor um email baseado na solicitação do usuário: '{input}'. Identifique o destinatário, o assunto e o corpo da mensagem a partir da solicitação.",
-    expected_output="Um email bem estruturado, com destinatário, assunto e corpo claros e adequados ao contexto da solicitação.",
-    agent=email_agent
-)
-
-send_task = Task(
-    description="Enviar o email composto para o destinatário especificado.",
-    expected_output="Confirmação de que o email foi enviado com sucesso.",
-    agent=email_agent
-)
-
 # Função para obter o crew de email
 def get_email_crew(user_input=None):
     """
     Cria e retorna um crew especializado em emails.
+    Importante: criamos novas instâncias do agente e tarefas
+    a cada chamada para evitar persistência indesejada de estado.
     """
-    # Substituir {input} nos textos por user_input se fornecido
-    if user_input:
-        email_agent.goal = email_agent.goal.replace("{input}", user_input)
-        compose_task.description = compose_task.description.replace("{input}", user_input)
-
+    # Criar uma nova instância do agente de email
+    email_agent = Agent(
+        role="Agente de Email",
+        goal=f"Compor e enviar emails profissionais baseados na solicitação do usuário: {user_input}",
+        backstory="Você é um especialista em comunicação escrita, com vasta experiência em redação de emails formais e informais. Sua função é entender a solicitação do usuário e criar emails bem estruturados, claros e adequados ao contexto.",
+        tools=[send_email, compose_email, validate_email],
+        allow_delegation=False,
+        llm=get_gpt40(),
+        verbose=VERBOSE_MODE
+    )
+    
+    # Criar novas instâncias das tarefas
+    compose_task = Task(
+        description=f"Compor um email baseado na solicitação do usuário: {user_input}. Identifique o destinatário, o assunto e o corpo da mensagem a partir da solicitação.",
+        expected_output="Um email bem estruturado, com destinatário, assunto e corpo claros e adequados ao contexto da solicitação.",
+        agent=email_agent
+    )
+    
+    send_task = Task(
+        description="Enviar o email composto para o destinatário especificado.",
+        expected_output="Confirmação de que o email foi enviado com sucesso.",
+        agent=email_agent
+    )
+    
+    # Criar e retornar um novo crew com o agente e tarefas atualizados
     crew = Crew(
         agents=[email_agent],
         tasks=[compose_task, send_task],
         process=Process.sequential,
-        verbose=False
+        verbose=VERBOSE_MODE
     )
 
     return crew

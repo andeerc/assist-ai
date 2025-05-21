@@ -24,7 +24,8 @@ DEFAULT_CONFIG = {
     "email_sender": os.getenv("EMAIL_SENDER", ""),
     "email_password": os.getenv("EMAIL_PASSWORD", ""),
     "smtp_server": os.getenv("SMTP_SERVER", "smtp.gmail.com"),
-    "smtp_port": int(os.getenv("SMTP_PORT", "587"))
+    "smtp_port": int(os.getenv("SMTP_PORT", "587")),
+    "verbose_mode": os.getenv("VERBOSE_MODE", "False").lower() == "true"
 }
 
 # Carrega as configurações do usuário ou usa os valores padrão
@@ -63,11 +64,12 @@ ASSISTANT_NAME = CONFIG.get("assistant_name", "Assistente IA")
 TEMPERATURE = float(CONFIG.get("temperature", 0.7))
 MAX_TOKENS = int(CONFIG.get("max_tokens", 1024))
 TEMA_ATUAL = CONFIG.get("tema", "padrao")
+VERBOSE_MODE = CONFIG.get("verbose_mode", False)
 
 # Atualiza as configurações durante a execução
 def atualizar_configuracao(chave, valor):
     """Atualiza uma configuração específica e salva."""
-    global OPENAI_API_KEY, ASSISTANT_NAME, TEMPERATURE, MAX_TOKENS, TEMA_ATUAL, CONFIG
+    global OPENAI_API_KEY, ASSISTANT_NAME, TEMPERATURE, MAX_TOKENS, TEMA_ATUAL, VERBOSE_MODE, CONFIG
 
     CONFIG[chave] = valor
 
@@ -82,6 +84,8 @@ def atualizar_configuracao(chave, valor):
         MAX_TOKENS = int(valor)
     elif chave == "tema":
         TEMA_ATUAL = valor
+    elif chave == "verbose_mode":
+        VERBOSE_MODE = valor
 
     # Salva as alterações
     return salvar_configuracoes(CONFIG)

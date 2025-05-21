@@ -40,6 +40,7 @@ COMANDOS = {
     "/env": "Informações sobre configurações sensíveis (.env)",
     "/limpar": "Limpa a tela do terminal",
     "/tema": "Muda o tema visual (padrão, escuro, claro, natureza)",
+    "/verbose": "Ativa/desativa o modo verbose",
     "/sair": "Encerra o aplicativo"
 }
 
@@ -282,6 +283,13 @@ def processar_entrada(entrada):
         exibir_info_env()
     elif entrada_lower == "/limpar":
         limpar_tela()
+    elif entrada_lower == "/verbose":
+        # Alternar o modo verbose
+        from config.settings import VERBOSE_MODE
+        novo_valor = not VERBOSE_MODE
+        atualizar_configuracao("verbose_mode", novo_valor)
+        status = "ativado" if novo_valor else "desativado"
+        console.print(f"[{get_tema()['principal']}]Modo verbose {status}[/{get_tema()['principal']}]")
     elif entrada_lower.startswith("/tema"):
         partes = entrada_lower.split(maxsplit=1)
         if len(partes) > 1 and partes[1] in TEMAS:
@@ -290,21 +298,25 @@ def processar_entrada(entrada):
             atualizar_configuracao("tema", tema_atual)
             salvar_configuracoes(CONFIG)
             console.print(f"[{get_tema()['principal']}]Tema alterado para: {tema_atual}[/{get_tema()['principal']}]")
-        else:
-            # Se o usuário não especificar um tema válido, mostrar os temas disponíveis
+        else:            # Se o usuário não especificar um tema válido, mostrar os temas disponíveis
             console.print(f"[{get_tema()['destaque']}]Temas disponíveis:[/{get_tema()['destaque']}]")
             for i, tema in enumerate(TEMAS.keys(), 1):
                 console.print(f"[{get_tema()['secundaria']}]{i}. {tema}[/{get_tema()['secundaria']}]")
 
-        console.print(f"[{get_tema()['erro']}]Use /tema seguido do nome do tema. Exemplo: /tema claro[/{get_tema()['erro']}]")
+            console.print(f"[{get_tema()['erro']}]Use /tema seguido do nome do tema. Exemplo: /tema claro[/{get_tema()['erro']}]")
     else:
         cores = get_tema()
         result_to_print = f"[bold {cores['erro']}]Não foi possível processar sua solicitação.[/bold {cores['erro']}]"
-        with Status("", spinner="dots"):
+
+        # Verifica se o modo verbose está ativado
+        from config.settings import VERBOSE_MODE        # Se verbose estiver ativo, executar sem mostrar o loader
+        if VERBOSE_MODE:
             # Inicializa o gerenciador de chat e de crews
             chat_manager = ChatManager()
             crew_manager = CrewManager()
 
+            # Limpa o histórico de conversas anteriores para evitar interferência
+            chat_manager.reset_conversation()
             result = chat_manager.handle_user_input(entrada)
 
             # Define as cores para a resposta
@@ -318,6 +330,27 @@ def processar_entrada(entrada):
                     result_to_print = crew_result['result']
                 except ValueError as e:
                     result_to_print = f"[bold {cores['erro']}]Erro:[/bold {cores['erro']}] {str(e)}"
+        else:
+            # Com o modo verbose desativado, mostra o loader
+            with Status("", spinner="dots"):                # Inicializa o gerenciador de chat e de crews
+                chat_manager = ChatManager()
+                crew_manager = CrewManager()
+
+                # Limpa o histórico de conversas anteriores para evitar interferência
+                chat_manager.reset_conversation()
+                result = chat_manager.handle_user_input(entrada)
+
+                # Define as cores para a resposta
+                # Verifica o tipo de ação a ser tomada
+                if result['action'] == 'direct_response':
+                    result_to_print = result['response']
+                elif result['action'] == 'use_crew':
+                    # Utiliza um crew específico
+                    try:
+                        crew_result = crew_manager.execute_crew(result['crew_type'], entrada)
+                        result_to_print = crew_result['result']
+                    except ValueError as e:
+                        result_to_print = f"[bold {cores['erro']}]Erro:[/bold {cores['erro']}] {str(e)}"
 
         console.print(Panel(
             f"[italic]{result_to_print}[/]",

@@ -19,7 +19,7 @@ if not exist .venv (
 :: Verificar se o arquivo .env existe
 if not exist .env (
     color 0E
-    echo [AVISO] Arquivo .env não encontrado! 
+    echo [AVISO] Arquivo .env não encontrado!
     echo         Algumas funcionalidades podem não funcionar corretamente.
     echo         Recomendamos executar setup.bat primeiro.
     echo.
@@ -59,5 +59,3 @@ call .venv\Scripts\deactivate.bat
 color 07
 echo.
 echo Aplicativo encerrado.
-echo.
-pause
