@@ -12,3 +12,4 @@ setuptools
 beautifulsoup4
 requests
 langchain-community
+playwright
