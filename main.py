@@ -30,6 +30,11 @@ from crews.manager import CrewManager
 console = Console()
 app = typer.Typer()
 
+# Inicializa o gerenciador de chat e de crews globalmente
+# para manter o estado da conversa entre as entradas.
+chat_manager = ChatManager()
+crew_manager = CrewManager()
+
 # Obtém as dimensões do terminal
 terminal_width, terminal_height = shutil.get_terminal_size()
 
@@ -41,6 +46,7 @@ COMANDOS = {
     "/limpar": "Limpa a tela do terminal",
     "/tema": "Muda o tema visual (padrão, escuro, claro, natureza)",
     "/verbose": "Ativa/desativa o modo verbose",
+    "/reset": "Reinicia o histórico da conversa",
     "/sair": "Encerra o aplicativo"
 }
 
@@ -283,6 +289,9 @@ def processar_entrada(entrada):
         exibir_info_env()
     elif entrada_lower == "/limpar":
         limpar_tela()
+    elif entrada_lower == "/reset":
+        chat_manager.reset_conversation()
+        console.print(f"[{get_tema()['principal']}]Histórico da conversa reiniciado.[/{get_tema()['principal']}]")
     elif entrada_lower == "/verbose":
         # Alternar o modo verbose
         from config.settings import VERBOSE_MODE
@@ -311,12 +320,9 @@ def processar_entrada(entrada):
         # Verifica se o modo verbose está ativado
         from config.settings import VERBOSE_MODE        # Se verbose estiver ativo, executar sem mostrar o loader
         if VERBOSE_MODE:
-            # Inicializa o gerenciador de chat e de crews
-            chat_manager = ChatManager()
-            crew_manager = CrewManager()
-
-            # Limpa o histórico de conversas anteriores para evitar interferência
-            chat_manager.reset_conversation()
+            # Utiliza as instâncias globais de chat_manager e crew_manager
+            # A linha chat_manager.reset_conversation() foi removida daqui
+            # As instanciações de chat_manager e crew_manager foram removidas daqui
             result = chat_manager.handle_user_input(entrada)
 
             # Define as cores para a resposta
@@ -332,12 +338,10 @@ def processar_entrada(entrada):
                     result_to_print = f"[bold {cores['erro']}]Erro:[/bold {cores['erro']}] {str(e)}"
         else:
             # Com o modo verbose desativado, mostra o loader
-            with Status("", spinner="dots"):                # Inicializa o gerenciador de chat e de crews
-                chat_manager = ChatManager()
-                crew_manager = CrewManager()
-
-                # Limpa o histórico de conversas anteriores para evitar interferência
-                chat_manager.reset_conversation()
+            with Status("", spinner="dots"):
+                # Utiliza as instâncias globais de chat_manager e crew_manager
+                # A linha chat_manager.reset_conversation() foi removida daqui
+                # As instanciações de chat_manager e crew_manager foram removidas daqui
                 result = chat_manager.handle_user_input(entrada)
 
                 # Define as cores para a resposta

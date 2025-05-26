@@ -1,78 +1,64 @@
 from crewai import Agent, Task, Crew, Process
-from config.llms import get_gpt35, get_gpt40
-from crewai.tools import BaseTool
+from config.llms import get_llm # Import the new get_llm function
 from config.settings import VERBOSE_MODE
-from openai import OpenAI
+from typing import Optional, Dict, Any
+from ..base_crew import BaseCrew # Import BaseCrew
+from crewai_tools import DuckDuckGoSearchRun # Import standard search tool
 
-# Classes para as ferramentas de pesquisa
-class WebSearchTool(BaseTool):
+# --- SearchCrew Class ---
+class SearchCrew(BaseCrew):
     """
-    Ferramenta para realizar pesquisas na web usando a OpenAI API.
+    Crew especializado em realizar pesquisas na web usando DuckDuckGo.
     """
-    name: str = "web_search"
-    description: str = "Realiza pesquisas na web para encontrar informações atualizadas sobre um tópico específico."
+    description: str = "Realiza pesquisas na web para encontrar informações atualizadas sobre um tópico."
 
-    def _run(self, query: str) -> str:
+    def __init__(self, user_input: Optional[str] = None):
+        super().__init__(user_input)
+        self.search_agent = None
+        self.search_task = None
+        self.search_tool = DuckDuckGoSearchRun() # Initialize the tool
+
+    def _setup_agents_and_tasks(self):
         """
-        Executa uma pesquisa na web usando a OpenAI API.
-        Esta função utiliza a ferramenta de pesquisa da OpenAI para encontrar informações relevantes.
-
-        Args:
-            query: A consulta a ser pesquisada
-
-        Returns:
-            Resultados da pesquisa como texto
+        Configura os agentes e tarefas para o SearchCrew.
         """
-        try:
-            client = OpenAI()
+        effective_user_input = self.user_input if self.user_input else "Pesquisa genérica na web. Por favor, especifique o tópico."
 
-            response = client.responses.create(
-                model=get_gpt40(),
-                tools=[{"type": "web_search"}],
-                temperature=0.1,
-                max_tokens=1024,
-                input=query,
-            )
+        self.search_agent = Agent(
+            role="Agente de Pesquisa Web Especializado",
+            goal=f"Realizar pesquisas detalhadas e eficazes na web para encontrar informações atualizadas sobre: '{effective_user_input}' utilizando a ferramenta DuckDuckGo.",
+            backstory="Você é um especialista em pesquisa e análise de dados da web. Sua função é encontrar as informações mais relevantes, precisas e confiáveis sobre qualquer tópico solicitado pelo usuário. Você sabe como formular consultas de pesquisa eficazes, avaliar a credibilidade das fontes e extrair os dados mais importantes, apresentando-os de forma clara e organizada.",
+            tools=[self.search_tool],
+            allow_delegation=False, # Pode ser True se houver outros agentes para delegar tarefas de análise, por exemplo.
+            llm=get_llm(model_name="gpt-3.5-turbo", temperature=0.1), # Use get_llm
+            verbose=VERBOSE_MODE,
+            # memory=True # Enable if context needs to be maintained by the agent
+        )
 
-            return response.output_text
-        except Exception as e:
-            return f"Erro ao fazer busca: {str(e)}"
+        self.search_task = Task(
+            description=f"Pesquisar exaustivamente na web informações sobre: '{effective_user_input}'. Utilize a ferramenta de pesquisa DuckDuckGo para encontrar as informações mais relevantes e atuais. Após a pesquisa inicial, analise os resultados e, se necessário, refine a busca ou explore links promissores para obter detalhes.",
+            expected_output="Um resumo conciso e bem estruturado das informações encontradas, destacando fatos relevantes, dados importantes e, se possível, múltiplas perspectivas sobre o tópico pesquisado. Inclua as URLs das fontes primárias mais importantes.",
+            agent=self.search_agent
+        )
 
-# Função para obter o crew de pesquisa
-def get_search_crew(user_input=None):
-    """
-    Cria e retorna um crew especializado em pesquisas web.
-    Importante: criamos novas instâncias das ferramentas e do agente
-    a cada chamada para evitar persistência indesejada de estado.
-    """
-    # Instanciar as ferramentas (criar novas instâncias a cada chamada)
-    web_search_tool = WebSearchTool()
+    def kickoff(self) -> Dict[str, Any]:
+        """
+        Inicia a execução do SearchCrew.
+        """
+        self._setup_agents_and_tasks()
 
-    # Criar um novo agente de pesquisa com as novas instâncias de ferramentas
-    # Isso evita que o estado seja compartilhado entre diferentes consultas
-    search_agent = Agent(
-        role="Agente de Pesquisa Web",
-        goal=f"Realizar pesquisas na web para encontrar informações atualizadas sobre: {user_input}",
-        backstory="Você é um especialista em pesquisa e análise de dados da web. Sua função é encontrar as informações mais relevantes e confiáveis sobre qualquer tópico solicitado pelo usuário. Você sabe como avaliar fontes, extrair os dados mais importantes e apresentá-los de forma clara e organizada.",
-        tools=[web_search_tool],
-        allow_delegation=False,
-        llm=get_gpt35(),
-        verbose=VERBOSE_MODE
-    )
+        if not self.search_agent or not self.search_task:
+            return {"status": "error", "message": "Agente de pesquisa ou tarefa não configurado."}
 
-    # Criar uma nova tarefa para a pesquisa atual
-    search_task = Task(
-        description=f"Pesquisar na web informações sobre: {user_input}. Utilize a ferramenta de pesquisa para encontrar informações relevantes e depois extraia o conteúdo dos sites mais promissores quando necessário para obter informações detalhadas.",
-        expected_output="Um resumo completo e bem estruturado das informações encontradas, contendo fatos relevantes, números e detalhes importantes sobre o tópico pesquisado. Inclua as fontes utilizadas.",
-        agent=search_agent
-    )
+        search_processing_crew = Crew(
+            agents=[self.search_agent],
+            tasks=[self.search_task],
+            process=Process.sequential,
+            verbose=VERBOSE_MODE
+        )
 
-    # Criar e retornar um novo crew com o agente e tarefa atualizados
-    crew = Crew(
-        agents=[search_agent],
-        tasks=[search_task],
-        process=Process.sequential,
-        verbose=VERBOSE_MODE
-    )
+        result = search_processing_crew.kickoff()
+        return {"result": result}
 
-    return crew
+# A função get_search_crew(user_input) foi removida.
+# O CrewManager agora irá instanciar SearchCrew(user_input) diretamente.
